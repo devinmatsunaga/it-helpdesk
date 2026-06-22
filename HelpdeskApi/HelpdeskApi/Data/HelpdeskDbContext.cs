@@ -30,5 +30,23 @@ public class HelpdeskDbContext : DbContext
             .OnDelete(DeleteBehavior.Restrict);
 
         base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<TicketComment>()
+            .HasOne(c => c.Author)
+            .WithMany()
+            .HasForeignKey(c => c.AuthorId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<TicketComment>()
+            .HasOne(c => c.Ticket)
+            .WithMany(t => t.Comments)
+            .HasForeignKey(c => c.TicketId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<AuditLog>()
+            .HasOne(a => a.ChangedBy)
+            .WithMany()
+            .HasForeignKey(a => a.ChangedById)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }
