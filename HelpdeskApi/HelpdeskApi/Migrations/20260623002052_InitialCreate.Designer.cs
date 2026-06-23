@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace HelpdeskApi.Migrations
 {
     [DbContext(typeof(HelpdeskDbContext))]
-    [Migration("20260622051256_InitialCreate")]
+    [Migration("20260623002052_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -100,8 +100,8 @@ namespace HelpdeskApi.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("IsActive")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
 
                     b.Property<string>("Name")
                         .IsRequired()
