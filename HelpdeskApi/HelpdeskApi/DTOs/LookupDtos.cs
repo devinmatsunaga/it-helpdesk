@@ -1,6 +1,6 @@
 using HelpdeskApi.Models.Enums;
 
-namespace HelpdeskApiApi.DTOs;
+namespace HelpdeskApi.DTOs;
 
 public class CategoryResponse
 {

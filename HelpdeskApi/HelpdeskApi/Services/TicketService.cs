@@ -1,5 +1,5 @@
 using HelpdeskApi.Data;
-using HelpdeskApiApi.DTOs;
+using HelpdeskApi.DTOs;
 using HelpdeskApi.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -78,4 +78,49 @@ public class TicketService : ITicketService
         Status = t.Status,
         CreatedAt = t.CreatedAt
     };
+
+    public async Task<List<CommentResponse>> GetCommentsAsync(int ticketId)
+    {
+        return await _db.TicketComments
+            .Where(c => c.TicketId == ticketId)
+            .Include(c => c.Author)
+            .OrderBy(c => c.CreatedAt)
+            .Select(c => new CommentResponse
+            {
+                Id = c.Id,
+                AuthorName = c.Author!.DisplayName,
+                Body = c.Body,
+                CreatedAt = c.CreatedAt
+            })
+            .ToListAsync();
+    }
+
+    public async Task<CommentResponse> AddCommentAsync(int ticketId, CreateCommentResponse request)
+    {
+        var ticketExists = await _db.Tickets.AnyAsync(t => t.Id == ticketId);
+        if(!ticketExists) return null;
+
+        var comment = new Models.TicketComment
+        {
+            TicketId = ticketId,
+            AuthorId = request.AuthorId,
+            Body = request.Body,
+            IsInternal = request.IsInternal,
+        };
+        _db.TicketComments.Add(comment);
+        await _db.SaveChangesAsync();
+
+        return await _db.TicketComments
+            .Where(c => c.Id == comment.Id)
+            .Include(c => c.Author)
+            .Select(c => new CommentResponse
+            {
+                Id = c.Id,
+                AuthorName = c.Author.DisplayName,
+                Body = c.Body,
+                IsInternal = c.IsInternal,
+                CreatedAt = c.CreatedAt
+            })
+        .FirstAsync();
+    }
 }

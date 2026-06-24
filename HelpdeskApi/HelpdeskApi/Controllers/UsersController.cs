@@ -1,13 +1,15 @@
 using System.Drawing;
 using HelpdeskApi.Data;
-using HelpdeskApiApi.DTOs;
+using HelpdeskApi.DTOs;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authorization;
 
 namespace HelpdeskApi.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 
 public class UsersController : ControllerBase
 {

@@ -1,7 +1,7 @@
 using HelpdeskApi.Models;
 using HelpdeskApi.Models.Enums;
 
-namespace HelpdeskApiApi.DTOs;
+namespace HelpdeskApi.DTOs;
 
 public class TicketResponse // SENT BACK TO CLIENT WHEN LISTING/READING TICKETS
 {
