@@ -14,13 +14,14 @@ const nav = [
   { to: "/assets",      label: "Assets",         icon: Monitor },
   { to: "/users",       label: "Users",          icon: Users },
   { to: "/knowledge",   label: "Knowledge Base", icon: BookOpen },
-  { to: "/reports",     label: "Reports",        icon: BarChart3 },
+  { to: "/reports",     label: "Reports",        icon: BarChart3, agentOnly: true },
   { to: "/settings",    label: "Settings",       icon: Settings },
 ];
 
 export default function Sidebar() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate()
+  const canManage = user?.role === "Agent" || user?.role === 'Admin';
   return (
     <aside className="flex h-screen w-64 flex-col bg-slate-900 text-slate-300">
       <div className="flex items-center gap-2 px-6 py-5 text-white">
@@ -29,7 +30,9 @@ export default function Sidebar() {
       </div>
 
       <nav className="flex-1 space-y-1 px-3">
-        {nav.map(({ to, label, icon: Icon, end }) => (
+        {nav
+        .filter((item) => !item.agentOnly || canManage)
+        .map(({ to, label, icon: Icon, end }) => (
           <NavLink
             key={to}
             to={to}

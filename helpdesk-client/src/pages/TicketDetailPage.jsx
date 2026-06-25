@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { getTicket, getComments, addComment, UpdateTicket } from "../api";
+import { getTicket, getComments, addComment, UpdateTicket, getAgents, assignTicket, assignToMe } from "../api";
 import { PriorityBadge, StatusBadge } from "../components/Badge";
 import {
-  ArrowLeft, Wifi, User as UserIcon, Calendar, Monitor, AlertCircle, Send,
+  ArrowLeft, Wifi, User as UserIcon, Calendar, Monitor, AlertCircle, Send, UserPlus, BookOpen, Search,
 } from "lucide-react";
 import { STATUS } from "../lib/enums";
-import {useAuth} from "../auth/AuthContext"
+import {useAuth} from "../auth/AuthContext";
+import { getArticles } from "../api";
 
 
 export default function TicketDetailPage() {
@@ -20,6 +21,11 @@ export default function TicketDetailPage() {
   const [isInternal, setIsInternal] = useState(false);
   const [posting, setPosting] = useState(false);
   const {user} = useAuth();
+  const canAssign = user?.role === "Agent" || user?.role === "Admin";
+  const [agents, setAgents] = useState([]);
+  const canManage = user?.role == "Agent" || user?.role == "Admin";
+  const [articleResults, setArticleResults] = useState([]);
+  const [articleSearch, setArticleSearch] = useState("");
 
 
   useEffect(() => {
@@ -27,8 +33,16 @@ export default function TicketDetailPage() {
       .then(setTicket)
       .catch((e) => setError(e.response?.status === 404 ? "Ticket not found." : e.message))
       .finally(() => setLoading(false));
+
       getComments(id).then(setComments).catch(() => {});
-  }, [id]);
+
+      if (canAssign) getAgents().then(setAgents).catch(() => {});
+
+      if (canManage && ticket?.title) {
+        getArticles(ticket.title).then(setArticleResults).catch(() => {});
+      }
+
+  }, [id, canAssign, canManage, ticket?.title]);
 
     const handleReply = async () => {
       if (!replyBody.trim()) return;
@@ -61,6 +75,34 @@ export default function TicketDetailPage() {
         alert("Failed to update: " + e.message);
       }
     };
+
+    const handleAssign = async (agentId) => {
+      try {
+        const updated = await assignTicket(id, agentId ? Number(agentId) : null);
+        setTicket(updated);
+      } catch (e) {
+        alert(e.response?.status === 403 ? "Only agents can assign tickets." : "Failed: ")
+      }
+    };
+
+    const handleAssignToMe = async () => {
+      try {
+        const updated = await assignToMe(id);
+        setTicket(updated);
+      }catch (e) {
+        alert(e.response?.status === 403 ? "Only agents can assign tickets." : "Failed: ")
+      }
+    }
+
+    const handleArticleSearch = (value) => {
+      setArticleSearch(value);
+      getArticles(value).then(setArticleResults).catch(() => {})
+    };
+
+    const insertArticleLink = (article) => {
+      const link = `See this article: ${window.location.origin}/knowledge/${article.id} (${article.title})`;
+      setReplyBody((b) => (b ? b + "\n" + link : link))
+    }
 
   if (loading) return <div className="text-slate-400">Loading…</div>;
   if (error) return <div className="text-red-500">{error}</div>;
@@ -125,7 +167,6 @@ export default function TicketDetailPage() {
               <DetailRow icon={Calendar} label="Created" value={formatDate(ticket.createdAt)} />
             </div>
           </div>
-        </div>
 
         {/* Activity thread */}
 <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -191,13 +232,21 @@ export default function TicketDetailPage() {
     </div>
   </div>
 </div>
-
-        {/* Right info rail */}
-        <div className="space-y-6">
+      </div>
+{/* Right info rail */}
+        <div className="space-y-6 lg:sticky lg:top-6 lg:self-start">
           <RailCard title="Ticket Details">
+            <div className="mb-4 flex items-center gap-3 border-b border-slate-100 pb-4">
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-600 text-xs font-semibold text-white">
+                {initials(ticket.requesterName)}
+              </span>
+              <div className="text-sm">
+                <div className="font-medium text-slate-800">{ticket.requesterName}</div>
+                <div className="text-slate-400">Requester</div>
+              </div>
+            </div>
             <RailRow label="Ticket ID" value={`INC-${String(ticket.id).padStart(6, "0")}`} />
             <RailRow label="Created" value={formatDate(ticket.createdAt)} />
-            <RailRow label="Created By" value={ticket.requesterName} />
             <RailRow label="Category" value={ticket.categoryName} />
           </RailCard>
 
@@ -212,17 +261,88 @@ export default function TicketDetailPage() {
             )}
           </RailCard>
 
-          <RailCard title="Related User">
-            <div className="flex items-center gap-3">
-              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-600 text-xs font-semibold text-white">
-                {initials(ticket.requesterName)}
+          {/* Assignment card */}
+          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h3 className="mb-3 text-sm font-semibold text-slate-800">Assignment</h3>
+
+            <div className="mb-3 text-sm">
+              <span className="text-slate-500">Currently: </span>
+              <span className="font-medium text-slate-800">
+                {ticket.assignedAgentName || "Unassigned"}
               </span>
-              <div className="text-sm">
-                <div className="font-medium text-slate-800">{ticket.requesterName}</div>
-                <div className="text-slate-400">Requester</div>
+            </div>
+
+            {canAssign ? (
+              <div className="space-y-2">
+                <select
+                  value={ticket.assignedAgentId != null ? String(ticket.assignedAgentId) : ""}
+                  onChange={(e) => handleAssign(e.target.value || null)}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-400"
+                >
+                  <option value="">Unassigned</option>
+                  {agents.map((a) => (
+                    <option key={a.id} value={a.id}>{a.displayName}</option>
+                  ))}
+                </select>
+
+                {ticket.assignedAgentId !== user?.userId && (
+                  <button
+                    onClick={handleAssignToMe}
+                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                  >
+                    <UserPlus className="h-4 w-4" />
+                    Assign to me
+                  </button>
+                )}
+              </div>
+            ) : (
+              <p className="text-xs text-slate-400">Only agents can change assignment.</p>
+            )}
+          </div>
+
+          {/* Helpful Articles card */}
+          {canAssign && (
+            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+              <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-800">
+                <BookOpen className="h-4 w-4 text-blue-500" /> Helpful Articles
+              </h3>
+
+              <div className="relative mb-3">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  value={articleSearch}
+                  onChange={(e) => handleArticleSearch(e.target.value)}
+                  placeholder="Search knowledge base…"
+                  className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-400"
+                />
+              </div>
+
+              <div className="space-y-2">
+                {articleResults.length === 0 && (
+                  <p className="text-xs text-slate-400">No matching articles.</p>
+                )}
+                {articleResults.slice(0, 5).map((a) => (
+                  <div key={a.id} className="rounded-lg border border-slate-100 p-2 text-sm">
+                    <div
+                      onClick={() => navigate(`/knowledge/${a.id}`)}
+                      className="cursor-pointer font-medium text-blue-600 hover:underline"
+                    >
+                      {a.title}
+                    </div>
+                    <div className="mt-1 flex items-center justify-between">
+                      <span className="text-xs text-slate-400">{a.categoryName}</span>
+                      <button
+                        onClick={() => insertArticleLink(a)}
+                        className="text-xs font-medium text-blue-600 hover:underline"
+                      >
+                        + Add to reply
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
-          </RailCard>
+          )}
         </div>
       </div>
     </div>

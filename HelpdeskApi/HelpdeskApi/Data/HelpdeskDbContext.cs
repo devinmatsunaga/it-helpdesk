@@ -14,6 +14,9 @@ public class HelpdeskDbContext : DbContext
     public DbSet <Asset> Assets => Set<Asset>();
     public DbSet <TicketComment> TicketComments => Set<TicketComment>();
     public DbSet <AuditLog> AuditLogs => Set<AuditLog>();
+    public DbSet <Article> Articles => Set<Article>();
+    public DbSet <ArticleCategory> ArticleCategories => Set<ArticleCategory>();
+    public DbSet <ArticleComment> ArticleComments => Set<ArticleComment>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -48,5 +51,29 @@ public class HelpdeskDbContext : DbContext
             .WithMany()
             .HasForeignKey(a => a.ChangedById)
             .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<Asset>()
+            .HasOne(a => a.AssignedToUser)
+            .WithMany()
+            .HasForeignKey(a => a.AssignedToUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<Article>()
+            .HasOne(a => a.Author)
+            .WithMany()
+            .HasForeignKey(a => a.AuthorId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<ArticleComment>()
+            .HasOne(c => c.Author)
+            .WithMany()
+            .HasForeignKey(c => c.AuthorId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<ArticleComment>()
+            .HasOne(c => c.Article)
+            .WithMany()
+            .HasForeignKey(c => c.ArticleId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

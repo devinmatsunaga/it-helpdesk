@@ -10,15 +10,20 @@ public class TicketService : ITicketService
     private readonly HelpdeskDbContext _db;
     public TicketService(HelpdeskDbContext db) => _db = db;
 
-    public async Task<List<TicketResponse>> GetAllAsync()
+    public async Task<List<TicketResponse>> GetAllAsync(bool unassignedOnly = false)
     {
-        return await _db.Tickets
-            .Include(t => t.Requester)
-            .Include(t => t.AssignedAgent)
-            .Include(t => t.Category)
-            .Include(t => t.Asset)
-            .Select(t => MapToResponse(t))
-            .ToListAsync();
+    var query = _db.Tickets
+        .Include(t => t.Requester).Include(t => t.AssignedAgent)
+        .Include(t => t.Category).Include(t => t.Asset)
+        .AsQueryable();
+
+    if (unassignedOnly)
+        query = query.Where(t => t.AssignedAgentId == null);
+
+    return await query
+        .OrderByDescending(t => t.CreatedAt)
+        .Select(t => MapToResponse(t))
+        .ToListAsync();
     }
 
     public async Task<TicketResponse?> GetByIdAsync (int id)
@@ -72,6 +77,7 @@ public class TicketService : ITicketService
         Description = t.Description,
         RequesterName = t.Requester?.DisplayName ?? "",
         AssignedAgentName = t.AssignedAgent?.DisplayName,
+        AssignedAgentId = t.AssignedAgentId,
         CategoryName = t.Category?.Name ?? "",
         AssetTag = t.Asset?.AssetTag,
         Priority = t.Priority,
@@ -122,5 +128,33 @@ public class TicketService : ITicketService
                 CreatedAt = c.CreatedAt
             })
         .FirstAsync();
+    }
+
+    public async Task<List<TicketResponse>> GetMyTicketsAsync(int userId)
+    {
+        return await _db.Tickets
+            .Include(t => t.Requester)
+            .Include(t => t.AssignedAgent)
+            .Include(t => t.Category)
+            .Include(t => t.Asset)
+            .Where(t => t.RequesterId == userId || t.AssignedAgentId == userId)
+            .OrderByDescending(t => t.CreatedAt)
+            .Select(t => MapToResponse(t))
+            .ToListAsync();
+    }
+
+    public async Task<TicketResponse?> AssignAsync(int ticketId, int? agentId)
+    {
+        var ticket = await _db.Tickets.FirstOrDefaultAsync(t => t.Id == ticketId);
+        if (ticket is null) return null;
+
+        ticket.AssignedAgentId = agentId;
+        ticket.UpdatedAt = DateTime.UtcNow;
+
+        if (agentId is not null && ticket.Status == Models.Enums.TicketStatus.New)
+            ticket.Status = Models.Enums.TicketStatus.Open;
+
+        await _db.SaveChangesAsync();
+        return await GetByIdAsync(ticketId);
     }
 }

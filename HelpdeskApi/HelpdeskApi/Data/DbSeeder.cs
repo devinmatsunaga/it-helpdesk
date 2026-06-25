@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 using HelpdeskApi.Models;
 using HelpdeskApi.Models.Enums;
+using Microsoft.AspNetCore.Components.Web;
 using Microsoft.EntityFrameworkCore;
 
 namespace HelpdeskApi.Data;
@@ -45,6 +46,22 @@ public static class DbSeeder
             IsInternal = true
         });
         db.Tickets.Add(ticket);
+
+        if (!await db.ArticleCategories.AnyAsync())
+        {
+            var gettingStarted = new ArticleCategory {Name = "Getting Started"};
+            var acAccounts = new ArticleCategory {Name = "Accounts & Access"};
+            var acHardware = new ArticleCategory {Name = "Hardware"};
+            db.ArticleCategories.AddRange(gettingStarted, acAccounts, acHardware);
+            
+            db.Articles.Add(new Article
+            {
+                Title = "How to reset your password",
+                Body = "## Resetting Your Password\n\n1. Go to login page. \n2. Click **Forgot Password**.\n3. Follow the emailed link. \n\nIf you're still locked out, contact IT. ",
+                ArticleCategory = acAccounts,
+                IsPublished = true
+            });
+        }
 
         await db.SaveChangesAsync();
     }
